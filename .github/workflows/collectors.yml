@@ -10,6 +10,14 @@ on:
       - 'scripts/bench_matrix.py'
       - 'tests/**'
       - 'services/community-data/schema/**'
+      - 'services/community-data/src/**'
+      - 'services/community-data/test/**'
+      - 'services/community-data/package.json'
+      - 'services/community-data/bun.lock*'
+      - 'scripts/ane_soc_from_collect.py'
+      - 'scripts/test_ane_soc_from_collect.py'
+      - 'tools/ane_worker_liveness.py'
+      - 'tools/test_ane_worker_liveness.py'
       - '.github/workflows/collectors.yml'
   push:
     paths:
@@ -20,6 +28,14 @@ on:
       - 'scripts/bench_matrix.py'
       - 'tests/**'
       - 'services/community-data/schema/**'
+      - 'services/community-data/src/**'
+      - 'services/community-data/test/**'
+      - 'services/community-data/package.json'
+      - 'services/community-data/bun.lock*'
+      - 'scripts/ane_soc_from_collect.py'
+      - 'scripts/test_ane_soc_from_collect.py'
+      - 'tools/ane_worker_liveness.py'
+      - 'tools/test_ane_worker_liveness.py'
       - '.github/workflows/collectors.yml'
 
 permissions:
@@ -45,3 +61,25 @@ jobs:
       - run: python -m unittest discover -s tests -p test_mlx_provenance.py
       - run: python scripts/bench_matrix.py --self-test
       - run: pytest tests -q
+      # Standalone suites that pytest's tests/ discovery never reached.
+      - run: python scripts/test_ane_soc_from_collect.py
+      - run: pytest tools/test_ane_worker_liveness.py -q
+
+  worker:
+    # The community-data Worker's own unit tests (schema, schema-identity,
+    # pii, pow, caps, hash). Until now they only ran by hand; two schema
+    # regressions in one week (0be55eab, 16765c2c) were each caught only
+    # after deploy.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/community-data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun test test/unit
+      - run: python3 scripts/compute_schema_identity.py

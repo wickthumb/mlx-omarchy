@@ -1550,6 +1550,36 @@ class PayloadSchemaContract(unittest.TestCase):
         self.assertEqual(e2e["properties"]["kind"]["enum"], ["omarchy-mac-e2e"])
         self.assertFalse(set(schema["properties"]) - set(e2e["properties"]))
 
+class HyphenAdjacentNames(unittest.TestCase):
+    """A live host or user name inside a hyphenated token is still PII;
+    the project's own compounds keep their name."""
+
+    def setUp(self):
+        self.red = cc.Redactor(hostname="omarchy", username="steve",
+                               home="/home/steve")
+
+    def test_hyphen_adjacent_user_and_host_are_redacted(self):
+        self.assertEqual(self.red.apply("/tmp/steve-build/out"),
+                         "/tmp/[user]-build/out")
+        self.assertEqual(self.red.apply("build-steve/log"),
+                         "build-[user]/log")
+        self.assertEqual(self.red.apply("host omarchy-laptop up"),
+                         "host [host]-laptop up")
+        self.assertEqual(self.red.counts.get("username"), 2)
+        self.assertEqual(self.red.counts.get("hostname"), 1)
+
+    def test_project_compounds_survive_a_colliding_hostname(self):
+        text = ("mlx-omarchy 0.32.3 via mlx-omarchy-info; see omarchy-ane, "
+                "mesa-honeykrisp-omarchy-26.3.0 and omarchy-pkg-add")
+        self.assertEqual(self.red.apply(text), text)
+        self.assertNotIn("hostname", self.red.counts)
+
+    def test_plain_word_boundaries_unchanged(self):
+        self.assertEqual(self.red.apply("user=steve host omarchy"),
+                         "user=[user] host [host]")
+        self.assertEqual(self.red.apply("steven omarchyx"), "steven omarchyx")
+
+
 class SingleNetworkModule(unittest.TestCase):
     def test_only_collect_submit_imports_urllib(self):
         base = os.path.dirname(os.path.abspath(__file__))

@@ -380,6 +380,27 @@ void print_json(uint32_t index) {
       caps.max_descriptor_set_storage_buffers,
       true);
   num_field("non_apple_dev_override", non_apple ? 1 : 0, true);
+  // Capability axes (docs/chip-capability-axes.json, new-chip-bringup §1.2).
+  // Every value here is what the backend's own gates consume, so a new
+  // chip's row can be filled from this dump instead of from vulkaninfo.
+  num_field("subgroup_size", caps.subgroup_size, true);
+  num_field("cooperative_matrix_fp32_8x8x8",
+            caps.cooperative_matrix_f32_8 ? 1 : 0, true);
+  num_field("atomic_float_add", caps.shader_atomic_float_add ? 1 : 0, true);
+  num_field("driver_id", static_cast<unsigned long long>(
+                             static_cast<uint32_t>(caps.driver_id)), true);
+  str_field("memory_model",
+            caps.unified_memory && caps.host_visible_coherent
+                ? "uma_coherent"
+                : (caps.host_visible_coherent ? "host_visible_incoherent"
+                                              : "discrete"),
+            true);
+  std::cout << "  \"workgroup_limits\": {\"invocations\": "
+            << caps.max_compute_work_group_invocations
+            << ", \"size_x\": " << caps.max_compute_work_group_size[0]
+            << ", \"size_y\": " << caps.max_compute_work_group_size[1]
+            << ", \"size_z\": " << caps.max_compute_work_group_size[2]
+            << "},\n";
   if (caps.simulated) {
     num_field("simulated", 1, true);
     str_field("simulation_profile", caps.simulation_profile, true);
@@ -432,6 +453,11 @@ void print_text(uint32_t index) {
             << "\n";
   std::cout << "  shader int16:      " << (caps.shader_int16 ? "yes" : "no")
             << "\n";
+  std::cout << "  subgroup size:     " << caps.subgroup_size << "\n";
+  std::cout << "  coopmat f32 8x8x8: "
+            << (caps.cooperative_matrix_f32_8 ? "yes" : "no") << "\n";
+  std::cout << "  atomic float add:  "
+            << (caps.shader_atomic_float_add ? "yes" : "no") << "\n";
   std::cout << "  16-bit storage:    "
             << (caps.storage_buffer_16bit_access ? "yes" : "no") << "\n";
   std::cout << "  max compute shm:   " << caps.max_compute_shared_memory_size

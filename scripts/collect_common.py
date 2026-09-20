@@ -136,19 +136,49 @@ class Redactor:
             ))
         rx(r"(?<![\w.-])/(?:home|Users)/[^/\s:\"'@]+", "home_path", "[home]")
         # Live host and user names, last, so path placeholders above win.
+        # A name may sit inside a hyphenated token (`/tmp/steve-build`,
+        # `omarchy-laptop`), so `-` is not a boundary here; the project's
+        # own compounds are kept by name instead, because a hostname such
+        # as `omarchy` collides with them.
         if self.hostname and len(self.hostname) >= 2:
             rules.append((
-                re.compile(r"(?<![\w.-])" + re.escape(self.hostname) +
-                           r"(?![\w.-])", re.IGNORECASE),
-                self._replace("hostname", "[host]"),
+                re.compile(r"(?<![\w.])" + re.escape(self.hostname) +
+                           r"(?![\w.])", re.IGNORECASE),
+                self._name_replacer("hostname", "[host]"),
             ))
         if self.username and len(self.username) >= 2:
             rules.append((
-                re.compile(r"(?<![\w.-])" + re.escape(self.username) +
-                           r"(?![\w.-])", re.IGNORECASE),
-                self._replace("username", "[user]"),
+                re.compile(r"(?<![\w.])" + re.escape(self.username) +
+                           r"(?![\w.])", re.IGNORECASE),
+                self._name_replacer("username", "[user]"),
             ))
         return rules
+
+    # Hyphenated identifiers this project emits that must survive even
+    # when a live host or user name is one of their parts.
+    PROJECT_COMPOUNDS = (
+        "mlx-omarchy", "omarchy-ane", "omarchy-mac", "omarchy-pkgs",
+        "omarchy-aarch64", "mesa-honeykrisp-omarchy",
+        "ane-linux-experiments", "omarchy-pkg-add", "omarchy-menu",
+        "omarchy-launch",
+    )
+
+    def _name_replacer(self, kind, repl):
+        compounds = self.PROJECT_COMPOUNDS
+
+        def fn(match):
+            text = match.string
+            lo, hi = match.start(), match.end()
+            while lo > 0 and (text[lo - 1].isalnum() or text[lo - 1] in "-_"):
+                lo -= 1
+            while hi < len(text) and (text[hi].isalnum() or text[hi] in "-_"):
+                hi += 1
+            token = text[lo:hi].lower()
+            if any(token == c or token.startswith(c + "-") for c in compounds):
+                return match.group(0)
+            self._note(kind)
+            return repl
+        return fn
 
     def apply_value(self, value, field=None):
         """Redact structured observations without changing their types."""
